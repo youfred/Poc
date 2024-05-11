@@ -6,6 +6,10 @@ Handling recalls is a very sensitive and important matter for automotive compani
 ### Purpose
 Show how many car recalls have occurred this year and what kinds of recalls are happening, informing company engineers.
 
+### Data Featured 
+: It provides data on the recall status of cars, including the manufacturer, car name, production period (From), production period (To), and recall reason (For).
+And Especially  part about recall only contain data in 2022
+
 ### Featured Customers
 - Company engineers
 
@@ -27,4 +31,7 @@ This service streamlines the process of managing and responding to vehicle recal
 1. Estimate how long you think it will take to convert your idea sketch into a working/tangible PoC. <br>
 :  One day to come up with an idea, three days to develop it
 2. Record how long it actually took for you to build this PoC. <br>
-: 3 days ideation 4 days development 
+: 3 days ideation 4 days development
+
+
+
