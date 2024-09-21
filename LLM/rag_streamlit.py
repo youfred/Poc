@@ -2,15 +2,15 @@ import os
 import streamlit as st
 from loguru import logger
 
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain.chains import ConversationalRetrievalChain
+from langchain.chat_models import ChatOpenAI
+
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.memory import ConversationBufferMemory
 from langchain.vectorstores import FAISS
-from langchain.llms import HuggingFacePipeline
+
 from langchain.callbacks import get_openai_callback
 from langchain.memory import StreamlitChatMessageHistory
-
 # code related logo
 Hyundai_logo = "images/Hyundai_logo.png"
 horizontal_logo = "images/Hyundai_logo_horizen.png"
@@ -23,6 +23,8 @@ def main():
 
     st.title("_:blue[Hyundai Motor]_ - Motor Vehicle Law Data :blue[QA Chatbot] :scales:")
     st.markdown("Hyundai Motor Company & Handong Grobal University")
+    # st.markdown("Place your legal documents in the space in the sidebar. Enter your OpenAI API Key below it and press Process!")
+    # sidebar
     st.logo(
         horizontal_logo,
         icon_image=Hyundai_logo
@@ -39,13 +41,18 @@ def main():
         st.session_state.processComplete = None
 
     with st.sidebar:
+        openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
         process = st.button("Start Chatting")
 
     if process:
+        if not openai_api_key:
+            st.info("Please add your OpenAI API key to continue.")
+            st.stop()
+
         # FAISS 벡터스토어 로드
         vectorstore = load_vectorstore('./db/faiss')
 
-        st.session_state.conversation = get_conversation_chain(vectorstore)
+        st.session_state.conversation = get_conversation_chain(vectorstore, openai_api_key)
         st.session_state.processComplete = True
 
     if 'messages' not in st.session_state:
@@ -94,25 +101,8 @@ def load_vectorstore(db_path):
     vectorstore = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
     return vectorstore
 
-def get_conversation_chain(vectorstore):
-    # Hugging Face 모델 로드
-    model_name = "akjindal53244/Llama-3.1-Storm-8B"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
-
-    # 모델 파이프라인 생성
-    hf_pipeline = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        max_length=512,
-        temperature=0
-    )
-
-    # langchain의 HuggingFacePipeline을 사용하여 LLM 생성
-    llm = HuggingFacePipeline(pipeline=hf_pipeline)
-
-    # ConversationalRetrievalChain 생성
+def get_conversation_chain(vectorstore, openai_api_key):
+    llm = ChatOpenAI(openai_api_key=openai_api_key, model_name='gpt-4o-mini-2024-07-18', temperature=0)
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         chain_type="stuff",
@@ -122,7 +112,6 @@ def get_conversation_chain(vectorstore):
         return_source_documents=True,
         verbose=True
     )
-    
     return conversation_chain
 
 if __name__ == '__main__':
