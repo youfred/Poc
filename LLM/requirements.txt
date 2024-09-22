@@ -1,0 +1,10 @@
+streamlit
+tiktoken
+loguru
+langchain
+faiss-cpu
+sentence-transformers
+torch
+docx2txt
+unstructured
+langchain_community
