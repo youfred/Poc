@@ -50,7 +50,7 @@ def main():
             st.stop()
 
         # FAISS 벡터스토어 로드
-        vectorstore = load_vectorstore('./db/faiss')
+        vectorstore = load_vectorstore('LLM/db/faiss')
 
         st.session_state.conversation = get_conversation_chain(vectorstore, openai_api_key)
         st.session_state.processComplete = True
