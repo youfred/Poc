@@ -8,3 +8,4 @@ torch
 docx2txt
 unstructured
 langchain_community
+openai
