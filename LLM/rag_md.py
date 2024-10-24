@@ -133,13 +133,28 @@ def get_text(docs):
             markdown_content = file_content.decode('utf-8')
             documents = [{"page_content": markdown_content, "metadata": {"source": file_name}}]  # 메타데이터 포함
 
-        doc_list.extend(documents)
+        # 문서가 올바른 형식인지 확인
+        if documents and isinstance(documents, list):
+            for doc in documents:
+                if not isinstance(doc, dict):
+                    logger.warning("Document format is incorrect. Expected dict.")
+                    continue
+                # 'page_content'가 있는지 확인
+                if 'page_content' not in doc:
+                    logger.warning(f"Missing 'page_content' in document: {doc}")
+                    continue
+                doc_list.append(doc)
     
     return doc_list
 
 def get_text_chunks(texts):
     # 마크다운 헤더에 따라 분할
-    header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=["#", "##", "###"])  # 필요에 따라 조정
+    header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=["#", "##", "###"])
+    
+    # 텍스트의 내용 로깅
+    logger.info(f"Number of documents before splitting: {len(texts)}")
+    logger.info(f"Documents: {texts}")
+    
     header_chunks = header_splitter.split_documents(texts)
 
     # 이후 RecursiveCharacterTextSplitter를 사용하여 청크 생성
@@ -151,7 +166,6 @@ def get_text_chunks(texts):
     
     final_chunks = []
     for doc in header_chunks:
-        # 각 doc이 dict 형태로 되어 있어야 함
         if isinstance(doc, dict) and 'page_content' in doc:
             chunks = text_splitter.split_documents([doc])  # 문서별로 청크 분할
             final_chunks.extend(chunks)
