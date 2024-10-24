@@ -32,15 +32,14 @@ def main():
     )
 
     st.title("_:blue[Hyundai Motor]_ - Motor Vehicle Law Data :blue[QA Chatbot] :scales:")
-    st.markdown("Hyundai Motor Company & Handong Grobal University")
+    st.markdown("Hyundai Motor Company & Handong Global University")
     
     # sidebar
-    st.logo(
+    st.image(
         horizontal_logo,
-        icon_image=Hyundai_logo
+        use_column_width=True
     )
     st.sidebar.markdown("Place your legal documents in the space in the sidebar. Enter your OpenAI API Key below it and press Process!")
-
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
@@ -60,9 +59,9 @@ def main():
         if not openai_api_key:
             st.info("Please add your OpenAI API key to continue.")
             st.stop()
-        files_text = get_text(uploaded_files)
-        text_chunks = get_text_chunks(files_text)
-        vectorstore = get_vectorstore(text_chunks)
+        files_text = get_text(uploaded_files)  # 문서 텍스트 가져오기
+        text_chunks = get_text_chunks(files_text)  # 텍스트 청크로 분할
+        vectorstore = get_vectorstore(text_chunks)  # 벡터스토어 생성
 
         st.session_state.conversation = get_conversation_chain(vectorstore, openai_api_key)
         st.session_state.processComplete = True
@@ -116,39 +115,39 @@ def get_text(docs):
             logger.info(f"Uploaded {file_name}")
         
         # PDF 처리
-        if '.pdf' in doc.name:
+        if file_name.endswith('.pdf'):
             loader = PyPDFLoader(file_name)
             documents = loader.load_and_split()
 
         # DOCX 처리
-        elif '.docx' in doc.name:
+        elif file_name.endswith('.docx'):
             loader = Docx2txtLoader(file_name)
             documents = loader.load_and_split()
 
         # PPTX 처리
-        elif '.pptx' in doc.name:
+        elif file_name.endswith('.pptx'):
             loader = UnstructuredPowerPointLoader(file_name)
             documents = loader.load_and_split()
 
         # MD 처리 (마크다운 파일)
-        elif '.md' in doc.name:
+        elif file_name.endswith('.md'):
             with open(file_name, "r", encoding="utf-8") as f:
                 markdown_content = f.read()
-                documents = [markdown_content]
+                # 마크다운 파일은 단일 텍스트로 처리
+                documents = [{"page_content": markdown_content, "metadata": {"source": file_name}}]
 
         doc_list.extend(documents)
     
     return doc_list
 
-
-
-def get_text_chunks(text):
+def get_text_chunks(texts):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=900,
         chunk_overlap=100,
         length_function=tiktoken_len
     )
-    chunks = text_splitter.split_documents(text)
+    # documents가 리스트 형식이므로, 각 텍스트의 page_content를 추출해서 split
+    chunks = text_splitter.split_documents([{"page_content": text['page_content'], "metadata": text['metadata']} for text in texts])
     return chunks
 
 def get_vectorstore(text_chunks):
