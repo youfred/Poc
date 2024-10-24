@@ -15,13 +15,12 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.memory import ConversationBufferMemory
 from langchain.vectorstores import FAISS
 
-from io import StringIO
+from io import BytesIO
 
-# from streamlit_chat import message
 from langchain.callbacks import get_openai_callback
 from langchain.memory import StreamlitChatMessageHistory
 
-# code related logo
+# 로고 관련 이미지
 Hyundai_logo = "LLM/images/Hyundai_logo.png"
 horizontal_logo = "LLM/images/Hyundai_logo_horizen.png"
 
@@ -34,12 +33,12 @@ def main():
     st.title("_:blue[Hyundai Motor]_ - Motor Vehicle Law Data :blue[QA Chatbot] :scales:")
     st.markdown("Hyundai Motor Company & Handong Global University")
     
-    # sidebar
+    # 사이드바
     st.image(
         horizontal_logo,
         use_column_width=True
     )
-    st.sidebar.markdown("Place your legal documents in the space in the sidebar. Enter your OpenAI API Key below it and press Process!")
+    st.sidebar.markdown("법률 문서를 업로드하세요. OpenAI API 키를 입력하고 '처리' 버튼을 눌러주세요!")
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
@@ -51,13 +50,13 @@ def main():
         st.session_state.processComplete = None
 
     with st.sidebar:
-        uploaded_files = st.file_uploader("Upload your file", type=['pdf', 'docx', 'md'], accept_multiple_files=True)
+        uploaded_files = st.file_uploader("파일 업로드", type=['pdf', 'docx', 'pptx', 'md'], accept_multiple_files=True)
         openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
-        process = st.button("Process")
+        process = st.button("처리")
 
     if process:
         if not openai_api_key:
-            st.info("Please add your OpenAI API key to continue.")
+            st.info("계속하려면 OpenAI API 키를 입력하세요.")
             st.stop()
         files_text = get_text(uploaded_files)  # 문서 텍스트 가져오기
         text_chunks = get_text_chunks(files_text)  # 텍스트 청크로 분할
@@ -65,10 +64,9 @@ def main():
 
         st.session_state.conversation = get_conversation_chain(vectorstore, openai_api_key)
         st.session_state.processComplete = True
-        
 
     if 'messages' not in st.session_state:
-        st.session_state['messages'] = [{"role": "assistant", "content": "Hi! If you have any questions about a given legal document, feel free to ask!"}]
+        st.session_state['messages'] = [{"role": "assistant", "content": "안녕하세요! 법률 문서에 대해 질문이 있으면 자유롭게 물어보세요!"}]
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -76,8 +74,8 @@ def main():
 
     history = StreamlitChatMessageHistory(key="chat_messages")
 
-    # Chat logic
-    if query := st.chat_input("Please enter your question."):
+    # 채팅 로직
+    if query := st.chat_input("질문을 입력하세요."):
         st.session_state.messages.append({"role": "user", "content": query})
 
         with st.chat_message("user"):
@@ -87,7 +85,7 @@ def main():
             chain = st.session_state.conversation
 
             if chain is not None:
-                with st.spinner("Thinking..."):
+                with st.spinner("생각 중..."):
                     result = chain({"question": query})
                     with get_openai_callback() as cb:
                         st.session_state.chat_history = result['chat_history']
@@ -97,7 +95,7 @@ def main():
                     st.markdown(response)
                     with st.expander("참고 문서 확인"):
                         for doc in source_documents:
-                            st.markdown(doc.metadata['source'], help=doc.page_content)
+                            st.markdown(doc.metadata['source'])
 
                     st.session_state.messages.append({"role": "assistant", "content": response})
 
@@ -110,31 +108,30 @@ def get_text(docs):
     doc_list = []
     for doc in docs:
         file_name = doc.name
-        with open(file_name, "wb") as file:
-            file.write(doc.getvalue())
-            logger.info(f"Uploaded {file_name}")
+        # BytesIO를 사용하여 메모리에 저장
+        file_content = doc.getvalue()
+        
+        logger.info(f"Uploaded {file_name}")
         
         # PDF 처리
         if file_name.endswith('.pdf'):
-            loader = PyPDFLoader(file_name)
+            loader = PyPDFLoader(BytesIO(file_content))
             documents = loader.load_and_split()
 
         # DOCX 처리
         elif file_name.endswith('.docx'):
-            loader = Docx2txtLoader(file_name)
+            loader = Docx2txtLoader(BytesIO(file_content))
             documents = loader.load_and_split()
 
         # PPTX 처리
         elif file_name.endswith('.pptx'):
-            loader = UnstructuredPowerPointLoader(file_name)
+            loader = UnstructuredPowerPointLoader(BytesIO(file_content))
             documents = loader.load_and_split()
 
         # MD 처리 (마크다운 파일)
         elif file_name.endswith('.md'):
-            with open(file_name, "r", encoding="utf-8") as f:
-                markdown_content = f.read()
-                # 마크다운 파일은 단일 텍스트로 처리
-                documents = [{"page_content": markdown_content, "metadata": {"source": file_name}}]
+            markdown_content = file_content.decode('utf-8')
+            documents = [{"page_content": markdown_content, "metadata": {"source": file_name}}]
 
         doc_list.extend(documents)
     
@@ -146,8 +143,7 @@ def get_text_chunks(texts):
         chunk_overlap=100,
         length_function=tiktoken_len
     )
-    # documents가 리스트 형식이므로, 각 텍스트의 page_content를 추출해서 split
-    chunks = text_splitter.split_documents([{"page_content": text['page_content'], "metadata": text['metadata']} for text in texts])
+    chunks = text_splitter.split_documents(texts)
     return chunks
 
 def get_vectorstore(text_chunks):
