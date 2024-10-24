@@ -1,138 +1,99 @@
-import os
 import streamlit as st
-import tiktoken
-from loguru import logger
-from langchain.chains import ConversationalRetrievalChain
-from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.memory import ConversationBufferMemory
-from langchain.vectorstores import FAISS
 from io import BytesIO
-from langchain.callbacks import get_openai_callback
-from langchain.memory import StreamlitChatMessageHistory
-from langchain.schema import Document  # Document 추가
+from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredPowerPointLoader
+from langchain.text_splitter import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+import logging
 
-# 로고 관련 이미지
-Hyundai_logo = "LLM/images/Hyundai_logo.png"
-horizontal_logo = "LLM/images/Hyundai_logo_horizen.png"
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def main():
-    st.set_page_config(page_title="Hyundai Motor Company - Motor Vehicle Law", page_icon=Hyundai_logo)
-    st.title("_:blue[Hyundai Motor]_ - Motor Vehicle Law Data :blue[QA Chatbot] :scales:")
-    st.markdown("Hyundai Motor Company & Handong Global University")
-    
-    # 사이드바
-    st.image(horizontal_logo, use_column_width=True)
-    st.sidebar.markdown("법률 문서를 업로드하세요. OpenAI API 키를 입력하고 '처리' 버튼을 눌러주세요!")
-
-    # 세션 상태 초기화
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
-    if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "안녕하세요! 법률 문서에 대해 질문이 있으면 자유롭게 물어보세요!"}]
-
-    with st.sidebar:
-        uploaded_files = st.file_uploader("파일 업로드", type=['pdf', 'docx', 'pptx', 'md'], accept_multiple_files=True)
-        openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
-        process = st.button("처리")
-
-    if process:
-        if not openai_api_key:
-            st.info("계속하려면 OpenAI API 키를 입력하세요.")
-            st.stop()
-        files_text = get_text(uploaded_files)  # 문서 텍스트 가져오기
-        text_chunks = get_text_chunks(files_text)  # 텍스트 청크로 분할
-        vectorstore = get_vectorstore(text_chunks)  # 벡터스토어 생성
-
-        st.session_state.conversation = get_conversation_chain(vectorstore, openai_api_key)
-
-    # 채팅 메시지 표시
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    history = StreamlitChatMessageHistory(key="chat_messages")
-
-    # 채팅 로직
-    if query := st.chat_input("질문을 입력하세요."):
-        st.session_state.messages.append({"role": "user", "content": query})
-
-        with st.chat_message("user"):
-            st.markdown(query)
-
-        with st.chat_message("assistant"):
-            chain = st.session_state.conversation
-
-            if chain is not None:
-                with st.spinner("생각 중..."):
-                    result = chain({"question": query})
-                    with get_openai_callback() as cb:
-                        st.session_state.chat_history = result['chat_history']
-                    response = result['answer']
-                    source_documents = result['source_documents']
-
-                    st.markdown(response)
-                    with st.expander("참고 문서 확인"):
-                        for doc in source_documents:
-                            st.markdown(doc.metadata['source'])
-
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-
-def tiktoken_len(text):
-    tokenizer = tiktoken.get_encoding("cl100k_base")
-    tokens = tokenizer.encode(text)
-    return len(tokens)
+# Streamlit 앱 설정
+st.title("Document Upload and Splitter")
 
 def get_text(docs):
     doc_list = []
     for doc in docs:
         file_name = doc.name
         file_content = doc.getvalue()
-        
+
         logger.info(f"Uploaded {file_name}")
-        
+
         if file_name.endswith('.pdf'):
             loader = PyPDFLoader(BytesIO(file_content))
             documents = loader.load_and_split()
+            for document in documents:
+                document.metadata = {"source": file_name}
+        
         elif file_name.endswith('.docx'):
             loader = Docx2txtLoader(BytesIO(file_content))
             documents = loader.load_and_split()
+            for document in documents:
+                document.metadata = {"source": file_name}
+
         elif file_name.endswith('.pptx'):
             loader = UnstructuredPowerPointLoader(BytesIO(file_content))
             documents = loader.load_and_split()
+            for document in documents:
+                document.metadata = {"source": file_name}
+
         elif file_name.endswith('.md'):
             markdown_content = file_content.decode('utf-8')
-            # Document 객체로 변환하여 추가
-            documents = [Document(page_content=markdown_content)]  # 수정된 부분
+            documents = [{"page_content": markdown_content, "metadata": {"source": file_name}}]
 
         doc_list.extend(documents)
-    
+
     return doc_list
 
-def get_text_chunks(texts):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=100, length_function=tiktoken_len)
-    chunks = text_splitter.split_documents(texts)
-    return chunks
+def split_markdown_by_headers(markdown_document):
+    headers_to_split_on = [
+        ("#", "Header 1"),
+        ("##", "Header 2"),
+        ("###", "Header 3"),
+    ]
 
-def get_vectorstore(text_chunks):
-    embeddings = HuggingFaceEmbeddings(model_name="jhgan/ko-sroberta-multitask", model_kwargs={'device': 'cpu'}, encode_kwargs={'normalize_embeddings': True})
-    vectordb = FAISS.from_documents(text_chunks, embeddings)
-    return vectordb
+    # Markdown 헤더를 기준으로 텍스트를 분할하는 MarkdownHeaderTextSplitter 객체를 생성합니다.
+    markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+    # markdown_document를 헤더를 기준으로 분할하여 md_header_splits에 저장합니다.
+    md_header_splits = markdown_splitter.split_text(markdown_document)
 
-def get_conversation_chain(vectorstore, openai_api_key):
-    llm = ChatOpenAI(openai_api_key=openai_api_key, model_name='gpt-3.5-turbo', temperature=0)
-    conversation_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        chain_type="stuff",
-        retriever=vectorstore.as_retriever(search_type='mmr', verbose=True),
-        memory=ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key='answer'),
-        get_chat_history=lambda h: h,
-        return_source_documents=True,
-        verbose=True
+    return md_header_splits
+
+def split_text_recursively(text):
+    # 재귀적 텍스트 분할기를 생성합니다.
+    recursive_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,  # 청크 크기
+        chunk_overlap=200  # 청크 오버랩
     )
-    return conversation_chain
+    # 텍스트를 재귀적으로 분할합니다.
+    text_chunks = recursive_splitter.split_text(text)
+    return text_chunks
 
-if __name__ == '__main__':
+def main():
+    uploaded_files = st.file_uploader("파일 업로드", accept_multiple_files=True)
+
+    if uploaded_files:
+        # 업로드된 파일로부터 텍스트를 가져옵니다.
+        documents = get_text(uploaded_files)
+
+        for document in documents:
+            # 각 문서의 페이지 내용을 가져옵니다.
+            page_content = document.page_content
+            
+            # 문서가 마크다운 형식일 경우 헤더로 분할
+            if document.metadata.get("source", "").endswith('.md'):
+                md_splits = split_markdown_by_headers(page_content)
+                for split in md_splits:
+                    st.markdown(split)
+
+            # 문서 내용을 재귀적으로 분할
+            recursive_chunks = split_text_recursively(page_content)
+            st.write("재귀적 분할 결과:")
+            for chunk in recursive_chunks:
+                st.markdown(chunk)
+
+            # 문서 출처 표시
+            st.markdown(f"소스: {document.metadata['source']}")
+
+if __name__ == "__main__":
     main()
