@@ -12,6 +12,7 @@ from langchain.vectorstores import FAISS
 from io import BytesIO
 from langchain.callbacks import get_openai_callback
 from langchain.memory import StreamlitChatMessageHistory
+from langchain.schema import Document  # Document 추가
 
 # 로고 관련 이미지
 Hyundai_logo = "LLM/images/Hyundai_logo.png"
@@ -103,8 +104,8 @@ def get_text(docs):
             documents = loader.load_and_split()
         elif file_name.endswith('.md'):
             markdown_content = file_content.decode('utf-8')
-            # 메타데이터 없이 내용만 추가
-            documents = [{"page_content": markdown_content}] 
+            # Document 객체로 변환하여 추가
+            documents = [Document(page_content=markdown_content)]  # 수정된 부분
 
         doc_list.extend(documents)
     
