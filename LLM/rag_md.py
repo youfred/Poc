@@ -139,7 +139,7 @@ def get_text(docs):
 
 def get_text_chunks(texts):
     # 마크다운 헤더에 따라 분할
-    header_splitter = MarkdownHeaderTextSplitter()
+    header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=["#", "##", "###"])  # 필요에 따라 조정
     header_chunks = header_splitter.split_documents(texts)
 
     # 이후 RecursiveCharacterTextSplitter를 사용하여 청크 생성
