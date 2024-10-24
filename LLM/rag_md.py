@@ -129,9 +129,16 @@ def get_text(docs):
                 markdown_content = f.read()
                 # Treat markdown content as plain text
                 documents = [{'page_content': markdown_content, 'metadata': {'source': file_name}}]
+        
+        # Ensure each document has 'page_content'
+        for document in documents:
+            if 'page_content' in document:
+                doc_list.append(document)
+            else:
+                logger.warning(f"Document {file_name} does not have 'page_content'. Skipping.")
 
-        doc_list.extend(documents)
     return doc_list
+
 
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(
