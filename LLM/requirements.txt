@@ -9,3 +9,4 @@ docx2txt
 unstructured
 langchain_community
 openai
+markdown  # Added this line for Markdown support
