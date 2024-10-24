@@ -22,8 +22,8 @@ from langchain.callbacks import get_openai_callback
 from langchain.memory import StreamlitChatMessageHistory
 
 # code related logo
-Hyundai_logo = "/images/Hyundai_logo.png"
-horizontal_logo = "/images/Hyundai_logo_horizen.png"
+Hyundai_logo = "LLM/images/Hyundai_logo.png"
+horizontal_logo = "LLM/images/Hyundai_logo_horizen.png"
 
 def main():
     st.set_page_config(
