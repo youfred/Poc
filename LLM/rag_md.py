@@ -151,8 +151,12 @@ def get_text_chunks(texts):
     
     final_chunks = []
     for doc in header_chunks:
-        chunks = text_splitter.split_documents([doc])  # 문서별로 청크 분할
-        final_chunks.extend(chunks)
+        # 각 doc이 dict 형태로 되어 있어야 함
+        if isinstance(doc, dict) and 'page_content' in doc:
+            chunks = text_splitter.split_documents([doc])  # 문서별로 청크 분할
+            final_chunks.extend(chunks)
+        else:
+            logger.warning("Unexpected document format: {}".format(doc))
 
     return final_chunks
 
