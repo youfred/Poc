@@ -114,30 +114,32 @@ def get_text(docs):
         with open(file_name, "wb") as file:
             file.write(doc.getvalue())
             logger.info(f"Uploaded {file_name}")
+        
+        # PDF 처리
         if '.pdf' in doc.name:
             loader = PyPDFLoader(file_name)
             documents = loader.load_and_split()
+
+        # DOCX 처리
         elif '.docx' in doc.name:
             loader = Docx2txtLoader(file_name)
             documents = loader.load_and_split()
+
+        # PPTX 처리
         elif '.pptx' in doc.name:
             loader = UnstructuredPowerPointLoader(file_name)
             documents = loader.load_and_split()
+
+        # MD 처리 (마크다운 파일)
         elif '.md' in doc.name:
-            # Process markdown files as plain text
             with open(file_name, "r", encoding="utf-8") as f:
                 markdown_content = f.read()
-                # Treat markdown content as plain text
-                documents = [{'page_content': markdown_content, 'metadata': {'source': file_name}}]
-        
-        # Ensure each document has 'page_content'
-        for document in documents:
-            if 'page_content' in document:
-                doc_list.append(document)
-            else:
-                logger.warning(f"Document {file_name} does not have 'page_content'. Skipping.")
+                documents = [markdown_content]
 
+        doc_list.extend(documents)
+    
     return doc_list
+
 
 
 def get_text_chunks(text):
