@@ -138,7 +138,7 @@ def apply_prompt_template():
         template=""""
         Answer the following questions as best you can. 
         Be sure to base your answer on the information provided. Don't say you don't know, and be sure to explain why 
-        The information provided is in the form of a Json file. You have access to the following informations:
+        The information provided is in the form of a Markdown file. You have access to the following informations:
         
         {infos}
         
