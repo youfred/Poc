@@ -132,27 +132,56 @@ def get_text_chunks(text):
     chunks = text_splitter.split_documents(text)
     return chunks
 
-def get_vectorstore(text_chunks):
+def apply_prompt_template():
+    system_prompt_template = PromptTemplate(
+        input_variables=["infos","question"],
+        template=""""
+        Answer the following questions as best you can. 
+        Be sure to base your answer on the information provided. Don't say you don't know, and be sure to explain why 
+        The information provided is in the form of a Json file. You have access to the following informations:
+        
+        {infos}
+        
+        Begin!
+        
+        Question: {query}
+        
+        """)
+    return system_prompt_template
+
+def load_vectorstore(db_path):
+    # Hugging Face 임베딩 모델 로드 (임베딩 모델 정보는 저장된 벡터스토어와 동일해야 함)
     embeddings = HuggingFaceEmbeddings(
-        model_name="jhgan/ko-sroberta-multitask",
+        model_name="BAAI/bge-large-en-v1.5",
         model_kwargs={'device': 'cpu'},
         encode_kwargs={'normalize_embeddings': True}
     )
-    vectordb = FAISS.from_documents(text_chunks, embeddings)
-    return vectordb
+
+
+    # 저장된 FAISS 벡터스토어 로드
+    vectorstore = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
+    return vectorstore
 
 def get_conversation_chain(vectorstore, openai_api_key):
-    llm = ChatOpenAI(openai_api_key=openai_api_key, model_name='gpt-4o-mini-2024-07-18', temperature=0)  # Updated model name
+    llm = ChatOpenAI(openai_api_key=openai_api_key, model_name='gpt-4o-mini-2024-07-18', temperature=0)
+
+    # 커스텀 프롬프트를 적용한 LLMChain 생성
+    system_prompt_template = apply_prompt_template()
+
+    # ConversationalRetrievalChain을 LLM과 함께 생성
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        chain_type="stuff",
         retriever=vectorstore.as_retriever(search_type='mmr', verbose=True),
-        memory=ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key='answer'),
+        memory=ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key= 'answer'),
         get_chat_history=lambda h: h,
         return_source_documents=True,
         verbose=True
     )
+    
     return conversation_chain
+
+
 
 if __name__ == '__main__':
     main()
+
