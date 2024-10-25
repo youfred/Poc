@@ -149,18 +149,15 @@ def apply_prompt_template():
         """)
     return system_prompt_template
 
-def load_vectorstore(db_path):
-    # Hugging Face 임베딩 모델 로드 (임베딩 모델 정보는 저장된 벡터스토어와 동일해야 함)
+def get_vectorstore(text_chunks):
     embeddings = HuggingFaceEmbeddings(
         model_name="BAAI/bge-large-en-v1.5",
         model_kwargs={'device': 'cpu'},
         encode_kwargs={'normalize_embeddings': True}
     )
-
-
-    # 저장된 FAISS 벡터스토어 로드
-    vectorstore = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
+    vectorstore = FAISS.from_documents(text_chunks, embeddings)
     return vectorstore
+
 
 def get_conversation_chain(vectorstore, openai_api_key):
     llm = ChatOpenAI(openai_api_key=openai_api_key, model_name='gpt-4o-mini-2024-07-18', temperature=0)
