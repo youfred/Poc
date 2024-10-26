@@ -137,9 +137,9 @@ def apply_prompt_template():
     system_prompt_template = PromptTemplate(
         input_variables=["infos","question"],
         template=""""
-        Answer the following questions as best you can. 
-        Be sure to base your answer on the information provided. Don't say you don't know, and be sure to explain why 
-        The information provided is in the form of a Markdown file. You have access to the following informations:
+        Answer the following questions to the best of your ability. 
+Base your answers on the information provided. Don't answer that you don't know, and be sure to explain why you answered that way. 
+The information provided is in the form of a markdown file. You will have access to the following information:
         
         {infos}
         
